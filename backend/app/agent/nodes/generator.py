@@ -1,7 +1,10 @@
 """Node 4 - Answer generator. Tokens are streamed by LangGraph (stream_mode='messages')."""
+from __future__ import annotations
+
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
+from app.agent.citation_filter import sanitize_citations
 from app.agent.state import AgentState
 from app.agent.utils import text_of
 from app.llm.client import get_chat_llm
@@ -12,12 +15,26 @@ def _build_context(documents: list[dict], web_results: list[dict]) -> str:
     blocks: list[str] = []
     n = 1
     for d in documents:
-        blocks.append(f"[{n}] PDF '{d['filename']}', page {d['page']}\n{d['text']}")
-        n += 1
+        label = d.get("n", n)
+        blocks.append(f"[{label}] PDF '{d['filename']}', page {d['page']}\n{d['text']}")
+        n = int(label) + 1
     for w in web_results:
-        blocks.append(f"[{n}] Web: {w['title']} ({w['url']})\n{w['content']}")
-        n += 1
+        label = w.get("n", n)
+        blocks.append(f"[{label}] Web: {w['title']} ({w['url']})\n{w['content']}")
+        n = int(label) + 1
     return "\n\n".join(blocks)
+
+
+def _valid_citation_numbers(documents: list[dict], web_results: list[dict]) -> set[int]:
+    nums: set[int] = set()
+    n = 1
+    for d in documents:
+        nums.add(int(d.get("n", n)))
+        n = int(d.get("n", n)) + 1
+    for w in web_results:
+        nums.add(int(w.get("n", n)))
+        n = int(w.get("n", n)) + 1
+    return nums
 
 
 def _history_messages(history: list[dict]) -> list[BaseMessage]:
@@ -30,6 +47,7 @@ def _history_messages(history: list[dict]) -> list[BaseMessage]:
 async def generator_node(state: AgentState, config: RunnableConfig) -> dict:
     documents = state.get("documents") or []
     web_results = state.get("web_results") or []
+    valid = _valid_citation_numbers(documents, web_results)
 
     system_prompt = build_system_prompt(
         has_pdf_context=bool(documents),
@@ -45,4 +63,6 @@ async def generator_node(state: AgentState, config: RunnableConfig) -> dict:
         HumanMessage(content=state["question"]),
     ]
     response = await get_chat_llm().ainvoke(messages, config)
-    return {"answer": text_of(response.content)}
+    raw = text_of(response.content)
+    answer, used_citations = sanitize_citations(raw, valid)
+    return {"answer": answer, "used_citations": used_citations}

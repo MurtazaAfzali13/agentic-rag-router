@@ -55,6 +55,18 @@ class Settings(BaseSettings):
         path.mkdir(parents=True, exist_ok=True)
         return path
 
+    @property
+    def uploads_path(self) -> Path:
+        path = self.data_path / "uploads"
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    @property
+    def chunks_path(self) -> Path:
+        path = self.data_path / "chunks"
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -1,18 +1,13 @@
 # secrets
 .env
 .env.local
-backend/.env
 
 # python
 .venv/
 __pycache__/
 *.pyc
 
-# node / next
-node_modules/
-.next/
-next-env.d.ts
-tsconfig.tsbuildinfo
-
 # runtime data
-backend/data/*.json
+data/*.json
+data/uploads/
+data/chunks/

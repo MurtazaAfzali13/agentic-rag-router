@@ -1,4 +1,6 @@
 """Node 3 - Live web search with Tavily."""
+from __future__ import annotations
+
 import logging
 
 from app.agent.state import AgentState
@@ -18,14 +20,24 @@ async def web_search_node(state: AgentState) -> dict:
         log.error("Tavily search failed: %s", exc)
         results = []
 
-    sources = [
-        {
-            "type": "web",
-            "title": r["title"],
-            "url": r["url"],
-            "score": round(r["score"], 3),
-            "snippet": r["content"][:280],
-        }
-        for r in results
-    ]
-    return {"web_results": results, "sources": sources, "used_fallback": used_fallback}
+    # PDF sources are numbered first; continue from len(documents) + 1.
+    start_n = len(state.get("documents") or []) + 1
+    sources = []
+    numbered_results = []
+    for offset, result in enumerate(results):
+        n = start_n + offset
+        content = result.get("content", "") or ""
+        sources.append(
+            {
+                "type": "web",
+                "n": n,
+                "title": result.get("title", ""),
+                "url": result.get("url", ""),
+                "score": round(float(result.get("score", 0)), 3),
+                "snippet": content,  # full passage for reader pane
+                "text": content,
+            }
+        )
+        numbered_results.append({**result, "n": n})
+
+    return {"web_results": numbered_results, "sources": sources, "used_fallback": used_fallback}

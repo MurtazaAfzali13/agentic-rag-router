@@ -21,3 +21,4 @@ class AgentState(TypedDict, total=False):
 
     # Node 4 output
     answer: str
+    used_citations: list[int]

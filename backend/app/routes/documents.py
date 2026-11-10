@@ -1,11 +1,12 @@
 import asyncio
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 
 from app.core.config import get_settings
 from app.schemas.documents import DocumentOut
 from app.services import document_registry
-from app.services.pdf_service import PDFProcessingError, delete_pdf, ingest_pdf
+from app.services.pdf_service import PDFProcessingError, delete_pdf, get_pdf_path, ingest_pdf
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -32,6 +33,23 @@ async def upload_document(file: UploadFile = File(...)):
         return await asyncio.to_thread(ingest_pdf, filename=filename, content=content)
     except PDFProcessingError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.get("/{doc_id}/file")
+async def get_document_file(doc_id: str):
+    """Serve the original PDF with inline disposition and Range support (via FileResponse)."""
+    record = await asyncio.to_thread(document_registry.get_document, doc_id)
+    path = await asyncio.to_thread(get_pdf_path, doc_id)
+    if path is None:
+        raise HTTPException(status_code=404, detail="PDF file not found. Re-upload to enable page preview.")
+
+    filename = (record or {}).get("filename") or f"{doc_id}.pdf"
+    return FileResponse(
+        path,
+        media_type="application/pdf",
+        filename=filename,
+        content_disposition_type="inline",
+    )
 
 
 @router.delete("/{doc_id}", status_code=204)

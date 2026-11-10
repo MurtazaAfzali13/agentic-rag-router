@@ -67,12 +67,21 @@ class VectorStore:
         matches = []
         for m in res.matches:
             md = m.metadata or {}
+            # Prefer metadata chunk_index; fall back to parsing the vector id `{doc_id}#{i}`.
+            chunk_index = md.get("chunk_index")
+            if chunk_index is None:
+                vid = getattr(m, "id", "") or ""
+                try:
+                    chunk_index = int(str(vid).rsplit("#", 1)[-1])
+                except ValueError:
+                    chunk_index = -1
             matches.append(
                 {
                     "text": md.get("text", ""),
                     "filename": md.get("filename", "document"),
                     "doc_id": md.get("doc_id", ""),
                     "page": int(md.get("page", 0)),
+                    "chunk_index": int(chunk_index),
                     "score": float(m.score),
                 }
             )

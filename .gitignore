@@ -16,3 +16,5 @@ tsconfig.tsbuildinfo
 
 # runtime data
 backend/data/*.json
+backend/data/uploads/
+backend/data/chunks/
