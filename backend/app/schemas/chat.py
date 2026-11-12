@@ -10,3 +10,12 @@ class ChatMessage(BaseModel):
 
 class ChatRequest(BaseModel):
     messages: list[ChatMessage] = Field(min_length=1)
+    thread_id: str | None = Field(
+        default=None,
+        description="Optional client thread id; server generates one when omitted.",
+    )
+
+
+class ChatResumeRequest(BaseModel):
+    thread_id: str = Field(min_length=1)
+    decision: Literal["YES", "NO"]

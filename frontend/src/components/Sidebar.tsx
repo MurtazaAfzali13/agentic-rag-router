@@ -12,9 +12,9 @@ export function Sidebar() {
   }, [refresh]);
 
   return (
-    <aside className="hidden w-80 shrink-0 flex-col border-e border-ink-800 bg-ink-900/40 md:flex">
+    <aside className="hidden w-80 shrink-0 flex-col border-e border-white/[0.06] bg-ink-900/50 backdrop-blur-xl md:flex">
       <div className="px-5 pb-4 pt-5">
-        <p className="text-lg font-semibold tracking-tight">RAG Router</p>
+        <p className="text-lg font-semibold tracking-tight text-white">RAG Router</p>
         <p className="mt-0.5 text-xs text-mist-500">LangGraph · Pinecone · Tavily</p>
       </div>
       <div className="px-4">

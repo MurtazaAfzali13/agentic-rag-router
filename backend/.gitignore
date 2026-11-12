@@ -11,3 +11,5 @@ __pycache__/
 data/*.json
 data/uploads/
 data/chunks/
+data/checkpoints.db
+data/*.db

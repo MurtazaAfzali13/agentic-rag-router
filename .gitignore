@@ -18,3 +18,5 @@ tsconfig.tsbuildinfo
 backend/data/*.json
 backend/data/uploads/
 backend/data/chunks/
+backend/data/checkpoints.db
+backend/data/*.db

@@ -5,6 +5,8 @@ pydantic>=2.8
 pydantic-settings>=2.4
 
 langgraph>=0.2.60
+langgraph-checkpoint-sqlite>=2.0
+aiosqlite>=0.20
 langchain-core>=0.3
 langchain-openai>=0.2
 langchain-community>=0.3

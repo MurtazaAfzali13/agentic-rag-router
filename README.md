@@ -5,10 +5,16 @@ A LangGraph agent that decides, per question, whether to answer from **your PDFs
 ```
 START -> analyzer --pinecone--> retriever --docs found--> generator -> END
             |                       |
-            |                       +--nothing relevant--> web_search --> generator
-            +--web----------------------------------------> web_search --> generator
+            |                       +--nothing relevant--> web_approval (HITL interrupt)
+            +--web----------------------------------------> web_approval (HITL interrupt)
     +--direct-------------------------------------------------> generator
+
+web_approval --YES--> web_search --> generator -> END
+web_approval --NO---> fallback_not_found -> END
+                 (fixed: "I could not find this information in your provided PDF documents.")
 ```
+
+Human-in-the-loop: any path into live web search pauses via LangGraph `interrupt()` and an **`AsyncSqliteSaver`** checkpoint (`data/checkpoints.db`, opened in the FastAPI lifespan). Chat/resume use `astream` / `aget_state` only. The UI shows a glassmorphism confirmation modal; `POST /api/chat/resume` continues with `YES` or `NO`.
 
 ## How citations work
 
@@ -36,10 +42,10 @@ Documents indexed before file storage have `has_file: false` on `GET /api/docume
 
 ```
 backend/app/
-  agent/        state.py, graph.py, edges.py, citation_filter.py,
-                nodes/{analyzer,retriever,web_search,generator}.py
+  agent/        state.py, graph.py, edges.py, checkpointer.py, citation_filter.py,
+                nodes/{analyzer,retriever,web_approval,web_search,fallback_not_found,generator}.py
   prompts/      router_prompt.py, generator_prompt.py
-  routes/       chat.py (SSE), documents.py, health.py
+  routes/       chat.py (SSE + resume), documents.py, health.py
   services/     pdf_service.py, pdf_locator.py, vectorstore.py,
                 tavily_service.py, document_registry.py
   llm/          client.py (OpenRouter chat + embeddings)
@@ -47,7 +53,8 @@ backend/app/
   core/         config.py, logging.py
 frontend/src/
   app/          layout, page, globals.css
-  components/   Sidebar, FileDropzone, DocumentList, ChatWindow, MessageBubble, RouteTrace, SourceList, ChatInput
+  components/   Sidebar, FileDropzone, DocumentList, ChatWindow, MessageBubble,
+                RouteTrace, SourceList, ChatInput, WebSearchModal
   store/        chat-store.ts, document-store.ts (Zustand)
   lib/          api.ts (SSE streaming client), types.ts
 ```
@@ -60,9 +67,11 @@ frontend/src/
 | `POST` | `/api/documents/upload` | Store PDF + index + sidecar |
 | `GET` | `/api/documents/{doc_id}/file` | Original PDF (`application/pdf`, inline, Range via FileResponse) |
 | `DELETE` | `/api/documents/{doc_id}` | Registry + vectors + file + sidecar |
-| `POST` | `/api/chat` | SSE: `route` \| `step` \| `sources` \| `token` \| `done` \| `error` (each event has `t` ms epoch) |
+| `POST` | `/api/chat` | SSE: `route` \| `step` \| `sources` \| `token` \| `interrupt` \| `done` \| `error` |
+| `POST` | `/api/chat/resume` | Body `{ thread_id, decision: "YES"\|"NO" }` — resume after HITL interrupt |
 
-`done` payload: `{ used_citations: number[], citations_valid: boolean, t }`.
+`interrupt` payload: `{ thread_id, type, message, search_query, reason, route, t }`.  
+`done` payload: `{ thread_id, used_citations: number[], citations_valid: boolean, t }`.
 
 PDF source objects include: `type, n, doc_id, chunk_index, title, page, score, snippet, text, rects, page_width, page_height, match_quality`.
 

@@ -30,17 +30,7 @@ export async function deleteDocument(id: string): Promise<void> {
   if (!res.ok) throw new Error(await readError(res));
 }
 
-/** POSTs the conversation and yields parsed Server-Sent Events as they arrive. */
-export async function* streamChat(
-  messages: { role: "user" | "assistant"; content: string }[],
-  signal: AbortSignal,
-): AsyncGenerator<StreamEvent> {
-  const res = await fetch(`${API_URL}/api/chat`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages }),
-    signal,
-  });
+async function* readSse(res: Response): AsyncGenerator<StreamEvent> {
   if (!res.ok || !res.body) throw new Error(await readError(res));
 
   const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
@@ -61,4 +51,34 @@ export async function* streamChat(
       if (data) yield { event, data: JSON.parse(data) } as StreamEvent;
     }
   }
+}
+
+/** POSTs the conversation and yields parsed Server-Sent Events as they arrive. */
+export async function* streamChat(
+  messages: { role: "user" | "assistant"; content: string }[],
+  signal: AbortSignal,
+  threadId?: string,
+): AsyncGenerator<StreamEvent> {
+  const res = await fetch(`${API_URL}/api/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ messages, thread_id: threadId }),
+    signal,
+  });
+  yield* readSse(res);
+}
+
+/** Resume a paused LangGraph thread after HITL web-search approval. */
+export async function* streamChatResume(
+  threadId: string,
+  decision: "YES" | "NO",
+  signal: AbortSignal,
+): AsyncGenerator<StreamEvent> {
+  const res = await fetch(`${API_URL}/api/chat/resume`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ thread_id: threadId, decision }),
+    signal,
+  });
+  yield* readSse(res);
 }
